@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPC Key-Value Store — System Programming Dashboard</title>
+    <style>
+        :root {
+            --bg:          #0b0d14;
+            --surface:     #141720;
+            --surface-2:   #1b1f2e;
+            --border:      #252a3a;
+            --text:        #dde3f0;
+            --muted:       #6b7694;
+            --primary:     #4f8ef7;
+            --primary-dim: #1d3461;
+            --success:     #22c55e;
+            --warning:     #f59e0b;
+            --danger:      #ef4444;
+            --info-color:  #22c55e;
+            --warn-color:  #f59e0b;
+            --err-color:   #ef4444;
+            --terminal-bg: #07090f;
+            --mono: 'Menlo', 'Monaco', 'Courier New', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        /* ── Header ─────────────────────────────────────────── */
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 2rem;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        header h1 { font-size: 1rem; font-weight: 600; letter-spacing: -0.02em; }
+        .header-right { display: flex; align-items: center; gap: 1.5rem; }
+        .badge {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 0.75rem; color: var(--muted);
+        }
+        .dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%,100% { box-shadow: 0 0 4px var(--success); }
+            50% { box-shadow: 0 0 12px var(--success); }
+        }
+
+        /* ── Layout ─────────────────────────────────────────── */
+        .page { max-width: 1280px; margin: 0 auto; padding: 1.5rem 1rem; }
+
+        /* ── Stats Row ───────────────────────────────────────── */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+        }
+        .stat-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            font-family: var(--mono);
+            letter-spacing: -0.04em;
+        }
+        .stat-value.blue   { color: var(--primary); }
+        .stat-value.green  { color: var(--success); }
+        .stat-value.yellow { color: var(--warning); }
+        .stat-value.red    { color: var(--danger); }
+        .stat-value.white  { color: var(--text); }
+        .stat-value.mono-sm { font-size: 1.15rem; }
+
+        /* ── Main Grid ───────────────────────────────────────── */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+        }
+
+        .panel-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--muted);
+            padding-bottom: 0.75rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* ── Forms ───────────────────────────────────────────── */
+        .form-group { margin-bottom: 0.75rem; }
+        label { display: block; font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-size: 0.875rem;
+            font-family: var(--mono);
+            transition: border-color 0.15s;
+        }
+        input[type="text"]:focus { outline: none; border-color: var(--primary); }
+
+        .btn {
+            display: inline-block;
+            width: 100%;
+            padding: 0.6rem 1rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.1s;
+            color: white;
+            margin-top: 4px;
+            letter-spacing: 0.03em;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background: var(--primary); }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-ghost {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--muted);
+        }
+        .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
+        .btn-danger { background: var(--danger); }
+        .btn-danger:hover { opacity: 0.85; }
+        .btn-sm {
+            width: auto;
+            padding: 0.25rem 0.6rem;
+            font-size: 0.7rem;
+            margin: 0;
+        }
+
+        .divider { height: 1px; background: var(--border); margin: 1.25rem 0; }
+
+        /* ── Data Table ──────────────────────────────────────── */
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th {
+            text-align: left;
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--muted);
+            font-weight: 500;
+        }
+        td {
+            padding: 0.65rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: var(--surface-2); }
+        .key-cell { font-family: var(--mono); color: var(--primary); }
+        .val-cell { font-family: var(--mono); color: var(--text); }
+
+        .empty-state {
+            text-align: center;
+            padding: 2.5rem 0;
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        /* ── Command History ────────────────────────────────── */
+        .history-list {
+            max-height: 220px;
+            overflow-y: auto;
+        }
+        .history-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--mono);
+            font-size: 0.78rem;
+        }
+        .history-item:last-child { border-bottom: none; }
+        .history-cmd {
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-weight: 700;
+            font-size: 0.7rem;
+            flex-shrink: 0;
+        }
+        .cmd-set    { background: var(--primary-dim); color: var(--primary); }
+        .cmd-get    { background: #163016; color: var(--success); }
+        .cmd-delete { background: #2e1111; color: var(--danger); }
+        .cmd-list   { background: #2a2010; color: var(--warning); }
+        .history-text { color: var(--muted); word-break: break-all; }
+        .history-time { color: var(--border); font-size: 0.65rem; flex-shrink: 0; margin-left: auto; }
+
+        /* ── Terminal ────────────────────────────────────────── */
+        .terminal-wrap {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+        }
+        .terminal-topbar {
+            background: var(--surface-2);
+            padding: 0.5rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+        .terminal-title {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--muted);
+        }
+        .terminal-body {
+            padding: 0.75rem 1rem;
+            height: 220px;
+            overflow-y: auto;
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            background: var(--terminal-bg);
+            line-height: 1.5;
+        }
+
+        /* Log line colors */
+        .log-info    { color: var(--info-color); }
+        .log-warning { color: var(--warn-color); }
+        .log-error   { color: var(--err-color); }
+        .log-default { color: #4a5568; }
+
+        /* ── Toast Notification ─────────────────────────────── */
+        .toast {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            padding: 0.75rem 1.25rem;
+            border-radius: 6px;
+            color: white;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transform: translateY(150%);
+            transition: transform 0.25s ease-out;
+            z-index: 999;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+            max-width: 320px;
+        }
+        .toast.show { transform: translateY(0); }
+        .toast.success { background: #16522e; border: 1px solid var(--success); color: var(--success); }
+        .toast.error   { background: #4a1010; border: 1px solid var(--danger);  color: var(--danger); }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>IPC Key-Value Store</h1>
+    <div class="header-right">
+        <div class="badge" id="uptimeBadge">
+            <span>Uptime: <span id="uptimeVal">00:00:00</span></span>
+        </div>
+        <div class="badge">
+            <div class="dot"></div>
+            <span>Socket Connected &nbsp;·&nbsp; Auto-refresh active</span>
+        </div>
+    </div>
+</header>
+
+<div class="page">
+
+    <!-- Stats Row -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-label">SET Operations</div>
+            <div class="stat-value blue" id="statSet">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">GET Operations</div>
+            <div class="stat-value green" id="statGet">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">DELETE Operations</div>
+            <div class="stat-value red" id="statDelete">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">LIST Operations</div>
+            <div class="stat-value yellow" id="statList">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Requests</div>
+            <div class="stat-value white" id="statTotal">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Errors</div>
+            <div class="stat-value red" id="statErrors">0</div>
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="main-grid">
+
+        <!-- Left: Command Interface -->
+        <div>
+            <div class="panel">
+                <div class="panel-title">Command Interface</div>
+
+                <form onsubmit="handleSet(event)">
+                    <div class="form-group">
+                        <label>Key</label>
+                        <input type="text" id="set_key" placeholder="e.g. sunucu_ip" autocomplete="off" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Value</label>
+                        <input type="text" id="set_val" placeholder="e.g. 192.168.1.1" autocomplete="off" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">SET — Write to Store</button>
+                </form>
+
+                <div class="divider"></div>
+
+                <form onsubmit="handleGet(event)">
+                    <div class="form-group">
+                        <label>Key</label>
+                        <input type="text" id="get_key" placeholder="Query a key..." autocomplete="off" required>
+                    </div>
+                    <button type="submit" class="btn btn-ghost">GET — Read from Store</button>
+                </form>
+            </div>
+
+            <!-- Command History -->
+            <div class="panel" style="margin-top:1rem;">
+                <div class="panel-title">
+                    Command History
+                    <button class="btn btn-ghost btn-sm" onclick="clearHistory()">Clear</button>
+                </div>
+                <div class="history-list" id="historyList">
+                    <div class="empty-state">No commands yet.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Database View -->
+        <div class="panel">
+            <div class="panel-title">
+                Database View
+                <span style="font-weight:400; color: var(--muted);">Live Sync via IPC &nbsp;·&nbsp; <span id="keyCount">0</span> keys</span>
+            </div>
+            <div class="table-wrap">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>Key</th>
+                            <th>Value</th>
+                            <th style="text-align:right; width:80px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+                <div id="emptyState" class="empty-state" style="display:none;">
+                    No data in the store.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Terminal -->
+    <div class="terminal-wrap">
+        <div class="terminal-topbar">
+            <div class="terminal-title">~/kv_store — tail -f server.log &nbsp;(C server output, live)</div>
+            <div style="font-size:0.7rem; color: var(--muted);">IPC: Unix Domain Socket · Sync: pthread_rwlock_t · Pool: 4 threads</div>
+        </div>
+        <div class="terminal-body" id="terminalBody"></div>
+    </div>
+
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+    // ── Command History (in-memory) ─────────────────────────
+    const history = [];
+
+    function addHistory(cmd, args, success) {
+        const now = new Date();
+        const ts = now.toTimeString().slice(0,8);
+        history.unshift({ cmd, args, success, ts });
+        if (history.length > 50) history.pop();
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const el = document.getElementById('historyList');
+        if (history.length === 0) {
+            el.innerHTML = '<div class="empty-state">No commands yet.</div>';
+            return;
+        }
+        el.innerHTML = history.map(h => `
+            <div class="history-item">
+                <span class="history-cmd cmd-${h.cmd.toLowerCase()}">${h.cmd}</span>
+                <span class="history-text">${h.args}</span>
+                <span class="history-time">${h.ts}</span>
+            </div>
+        `).join('');
+    }
+
+    function clearHistory() {
+        history.length = 0;
+        renderHistory();
+    }
+
+    // ── Toast ────────────────────────────────────────────────
+    let toastTimer;
+    function showToast(msg, isError = false) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = `toast show ${isError ? 'error' : 'success'}`;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    // ── Log Colorizer ────────────────────────────────────────
+    function colorizeLog(line) {
+        const l = line.trim();
+        if (!l) return '';
+        if (l.includes('[ERROR]'))   return `<div class="log-error">${escHtml(l)}</div>`;
+        if (l.includes('[WARNING]')) return `<div class="log-warning">${escHtml(l)}</div>`;
+        if (l.includes('[INFO]'))    return `<div class="log-info">${escHtml(l)}</div>`;
+        return `<div class="log-default">${escHtml(l)}</div>`;
+    }
+
+    function escHtml(str) {
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Fetch Logs ───────────────────────────────────────────
+    async function fetchLogs() {
+        try {
+            const r = await fetch('/api/logs');
+            const data = await r.json();
+            if (data.status === 'success') {
+                const terminal = document.getElementById('terminalBody');
+                const atBottom = terminal.scrollHeight - terminal.clientHeight <= terminal.scrollTop + 5;
+                terminal.innerHTML = data.data.map(colorizeLog).join('');
+                if (atBottom) terminal.scrollTop = terminal.scrollHeight;
+            }
+        } catch (_) {}
+    }
+
+    // ── Fetch Stats ──────────────────────────────────────────
+    async function fetchStats() {
+        try {
+            const r = await fetch('/api/stats');
+            const data = await r.json();
+            if (data.status === 'success') {
+                const d = data.data;
+                document.getElementById('statSet').textContent    = d.set;
+                document.getElementById('statGet').textContent    = d.get;
+                document.getElementById('statDelete').textContent = d.delete;
+                document.getElementById('statList').textContent   = d.list;
+                document.getElementById('statTotal').textContent  = d.total;
+                document.getElementById('statErrors').textContent = d.errors;
+                document.getElementById('uptimeVal').textContent  = d.uptime;
+            }
+        } catch (_) {}
+    }
+
+    // ── Fetch List ───────────────────────────────────────────
+    async function fetchList() {
+        try {
+            const r = await fetch('/api/list');
+            const data = await r.json();
+            if (data.status === 'success') {
+                const tbody = document.getElementById('tableBody');
+                const empty = document.getElementById('emptyState');
+                const table = document.getElementById('dataTable');
+                const count = document.getElementById('keyCount');
+
+                tbody.innerHTML = '';
+                count.textContent = data.data.length;
+
+                if (data.data.length === 0) {
+                    table.style.display = 'none';
+                    empty.style.display = 'block';
+                } else {
+                    table.style.display = 'table';
+                    empty.style.display = 'none';
+                    data.data.forEach(item => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td class="key-cell">${escHtml(item.key)}</td>
+                            <td class="val-cell">${escHtml(item.value)}</td>
+                            <td style="text-align:right;">
+                                <button class="btn btn-danger btn-sm"
+                                    onclick="handleDelete('${escHtml(item.key)}')">DEL</button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            }
+        } catch (_) {}
+    }
+
+    // ── Commands ─────────────────────────────────────────────
+    async function handleSet(e) {
+        e.preventDefault();
+        const key = document.getElementById('set_key').value.trim();
+        const val = document.getElementById('set_val').value.trim();
+        const fd = new FormData();
+        fd.append('key', key);
+        fd.append('value', val);
+        try {
+            const r = await fetch('/api/set', { method: 'POST', body: fd });
+            const data = await r.json();
+            const ok = data.status === 'success';
+            showToast(ok ? `SET ${key} = ${val}` : data.message, !ok);
+            addHistory('SET', `${key} → ${val}`, ok);
+            if (ok) {
+                document.getElementById('set_key').value = '';
+                document.getElementById('set_val').value = '';
+                fetchList();
+                fetchLogs();
+                fetchStats();
+            }
+        } catch (_) { showToast('Connection error.', true); }
+    }
+
+    async function handleGet(e) {
+        e.preventDefault();
+        const key = document.getElementById('get_key').value.trim();
+        try {
+            const r = await fetch(`/api/get?key=${encodeURIComponent(key)}`);
+            const data = await r.json();
+            const ok = data.status === 'success';
+            showToast(ok ? `${key} = ${data.message}` : data.message, !ok);
+            addHistory('GET', key, ok);
+            fetchLogs();
+            fetchStats();
+        } catch (_) { showToast('Connection error.', true); }
+    }
+
+    async function handleDelete(key) {
+        const fd = new FormData();
+        fd.append('key', key);
+        try {
+            const r = await fetch('/api/delete', { method: 'POST', body: fd });
+            const data = await r.json();
+            const ok = data.status === 'success';
+            showToast(ok ? `Deleted: ${key}` : data.message, !ok);
+            addHistory('DELETE', key, ok);
+            if (ok) { fetchList(); fetchLogs(); fetchStats(); }
+        } catch (_) { showToast('Connection error.', true); }
+    }
+
+    // ── Auto-refresh Loops ────────────────────────────────────
+    fetchList(); fetchLogs(); fetchStats();
+
+    setInterval(fetchList,  2000);
+    setInterval(fetchLogs,  1000);
+    setInterval(fetchStats, 1000);
+</script>
+</body>
+</html>

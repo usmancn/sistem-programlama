@@ -1,0 +1,10 @@
+.DS_Store
+*.o
+server
+client
+*.sock
+__pycache__/
+*.pyc
+.env
+venv/
+server.log
